@@ -23,6 +23,8 @@ timeframe = '15m'
 # === Анализ монеты ===
 def analyze(symbol):
     try:
+        send_telegram_message(f"Проверка монеты: {symbol}")  # лог в Telegram
+
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=100)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
 
@@ -34,30 +36,18 @@ def analyze(symbol):
         df['macd'] = macd.macd()
         df['macd_signal'] = macd.macd_signal()
 
-        # Bollinger Bands
-        bb = ta.volatility.BollingerBands(df['close'])
-        df['bb_upper'] = bb.bollinger_hband()
-        df['bb_lower'] = bb.bollinger_lband()
-
-        # Последняя свеча
         rsi = df['rsi'].iloc[-1]
         macd_val = df['macd'].iloc[-1]
         macd_sig = df['macd_signal'].iloc[-1]
-        close = df['close'].iloc[-1]
-        bb_upper = df['bb_upper'].iloc[-1]
-        bb_lower = df['bb_lower'].iloc[-1]
 
-        # Сигналы
-        message = None
-        if rsi < 30 and macd_val > macd_sig and close < bb_lower:
-            message = f"BUY сигнал по {symbol}\nRSI: {rsi:.1f}, MACD пересечение вверх, Цена ниже BB"
-        elif rsi > 70 and macd_val < macd_sig and close > bb_upper:
-            message = f"SELL сигнал по {symbol}\nRSI: {rsi:.1f}, MACD пересечение вниз, Цена выше BB"
-
-        if message:
+        # Упрощённое условие сигнала:
+        if rsi < 45 and macd_val > macd_sig:
+            message = f"BUY сигнал по {symbol}\nRSI: {rsi:.1f}, MACD пересечение вверх"
             send_telegram_message(message)
+
     except Exception as e:
         print(f"[Ошибка] {symbol}: {e}")
+        
 
 # === Основной цикл ===
 send_telegram_message("✅ Бот запущен и готов анализировать рынок.")
