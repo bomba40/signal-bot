@@ -23,15 +23,12 @@ timeframe = '15m'
 # === Анализ монеты ===
 def analyze(symbol):
     try:
-        send_telegram_message(f"Проверка монеты: {symbol}")  # лог в Telegram
+        send_telegram_message(f"Проверка монеты: {symbol}")
 
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=100)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
 
-        # RSI
         df['rsi'] = ta.momentum.RSIIndicator(df['close']).rsi()
-
-        # MACD
         macd = ta.trend.MACD(df['close'])
         df['macd'] = macd.macd()
         df['macd_signal'] = macd.macd_signal()
@@ -40,9 +37,14 @@ def analyze(symbol):
         macd_val = df['macd'].iloc[-1]
         macd_sig = df['macd_signal'].iloc[-1]
 
-        # Упрощённое условие сигнала:
+        # Сигнал на long
         if rsi < 45 and macd_val > macd_sig:
             message = f"BUY сигнал по {symbol}\nRSI: {rsi:.1f}, MACD пересечение вверх"
+            send_telegram_message(message)
+
+        # Сигнал на short
+        elif rsi > 60 and macd_val < macd_sig:
+            message = f"SELL сигнал по {symbol}\nRSI: {rsi:.1f}, MACD пересечение вниз"
             send_telegram_message(message)
 
     except Exception as e:
