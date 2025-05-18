@@ -23,7 +23,6 @@ timeframe = '15m'
 # === Анализ монеты ===
 def analyze(symbol):
     try:
-        send_telegram_message(f"Проверка монеты: {symbol}")
 
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=100)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
