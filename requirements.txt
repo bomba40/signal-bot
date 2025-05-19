@@ -2,3 +2,4 @@ ccxt
 ta
 requests
 pandas
+matplotlib
