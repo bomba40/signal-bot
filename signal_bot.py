@@ -3,9 +3,8 @@ import pandas as pd
 import ta
 import requests
 import time
-import matplotlib.pyplot as plt
 import io
-
+import matplotlib.pyplot as plt
 # === Telegram настройки ===
 TELEGRAM_TOKEN = '7743689513:AAHwd8J0QGKGR1-0Ulnlm8Q_XRVvyktqwTA'
 TELEGRAM_CHAT_ID = '779831901'
@@ -32,7 +31,6 @@ def analyze(symbol):
         df['bb_upper'] = bb.bollinger_hband()
         df['bb_lower'] = bb.bollinger_lband()
         df['ema20'] = ta.trend.EMAIndicator(df['close'], window=20).ema_indicator()
-        df['ema50'] = ta.trend.EMAIndicator(df['close'], window=50).ema_indicator()
 
         # Последняя строка
         latest = df.iloc[-1]
@@ -43,45 +41,36 @@ def analyze(symbol):
         bb_upper = latest['bb_upper']
         bb_lower = latest['bb_lower']
         ema20 = latest['ema20']
-        ema50 = latest['ema50']
         volume = latest['volume']
         avg_volume = df['volume'].iloc[-20:].mean()
 
-        # Свечной паттерн: молот
-        body = abs(latest['close'] - latest['open'])
-        candle_range = latest['high'] - latest['low']
-        lower_shadow = min(latest['open'], latest['close']) - latest['low']
-        is_hammer = lower_shadow > body * 2 and body < candle_range * 0.3
-
         signal = None
 
-        # --- BUY условия ---
+        # --- BUY ---
         if (
-            rsi < 35 and
-            macd_val > macd_sig and
+            rsi < 40 and
+            macd_val >= macd_sig and
             close < bb_lower and
-            close > ema20 > ema50 and
-            volume > avg_volume and
-            is_hammer
+            close > ema20 and
+            volume > avg_volume * 0.9
         ):
             signal = 'BUY'
 
-        # --- SELL условия ---
+        # --- SELL ---
         elif (
-            rsi > 65 and
-            macd_val < macd_sig and
+            rsi > 60 and
+            macd_val <= macd_sig and
             close > bb_upper and
-            close < ema20 < ema50 and
-            volume > avg_volume
+            close < ema20 and
+            volume > avg_volume * 0.9
         ):
             signal = 'SELL'
 
         if signal:
-            # Построить график
+            # График
             plt.figure(figsize=(10, 5))
             plt.plot(df['timestamp'], df['close'], label='Цена', linewidth=2)
             plt.plot(df['timestamp'], df['ema20'], label='EMA20', linestyle='--')
-            plt.plot(df['timestamp'], df['ema50'], label='EMA50', linestyle='--')
             plt.axhline(bb_upper, color='red', linestyle=':', label='BB Верхняя')
             plt.axhline(bb_lower, color='green', linestyle=':', label='BB Нижняя')
             plt.title(f"{symbol} сигнал: {signal}")
@@ -98,8 +87,7 @@ def analyze(symbol):
                 f"{signal} сигнал по {symbol}\n"
                 f"RSI: {rsi:.1f}, Объём: {volume:.1f}\n"
                 f"MACD: {macd_val:.4f} | Signal: {macd_sig:.4f}\n"
-                f"EMA20: {ema20:.2f}, EMA50: {ema50:.2f}\n"
-                f"Цена: {close:.4f}"
+                f"EMA20: {ema20:.2f}, Цена: {close:.4f}"
             )
 
             requests.post(
