@@ -5,17 +5,24 @@ import requests
 import time
 import io
 import matplotlib.pyplot as plt
+
 # === Telegram настройки ===
 TELEGRAM_TOKEN = '7743689513:AAHwd8J0QGKGR1-0Ulnlm8Q_XRVvyktqwTA'
 TELEGRAM_CHAT_ID = '779831901'
 
+def send_telegram_message(message):
+    url = f'https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage'
+    data = {'chat_id': TELEGRAM_CHAT_ID, 'text': message}
+    requests.post(url, data=data)
+
 # === Подключение к Bybit ===
 exchange = ccxt.bybit({'enableRateLimit': True})
 
-# === Монеты и таймфрейм ===
+# === Настройки монет и таймфрейма ===
 symbols = ['SOL/USDT', 'WIF/USDT', 'SUI/USDT', 'JUP/USDT', 'PEPE/USDT', 'LINK/USDT', 'AAVE/USDT']
 timeframe = '15m'
 
+# === Анализ монеты ===
 def analyze(symbol):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=100)
@@ -32,7 +39,6 @@ def analyze(symbol):
         df['bb_lower'] = bb.bollinger_lband()
         df['ema20'] = ta.trend.EMAIndicator(df['close'], window=20).ema_indicator()
 
-        # Последняя строка
         latest = df.iloc[-1]
         close = latest['close']
         rsi = latest['rsi']
@@ -44,30 +50,43 @@ def analyze(symbol):
         volume = latest['volume']
         avg_volume = df['volume'].iloc[-20:].mean()
 
+        # --- Стакан ордеров ---
+        order_book = exchange.fetch_order_book(symbol)
+        bids = order_book['bids'][:3]
+        asks = order_book['asks'][:3]
+        best_bid = bids[0][0] if bids else 0
+        best_ask = asks[0][0] if asks else 0
+        spread = best_ask - best_bid if best_ask and best_bid else 0
+
+        bid_volume = sum(b[1] for b in bids)
+        ask_volume = sum(a[1] for a in asks)
+
         signal = None
 
-        # --- BUY ---
+        # BUY сигнал (сильное давление покупателей)
         if (
             rsi < 40 and
             macd_val >= macd_sig and
             close < bb_lower and
             close > ema20 and
-            volume > avg_volume * 0.9
+            volume > avg_volume * 0.9 and
+            bid_volume > ask_volume * 3
         ):
             signal = 'BUY'
 
-        # --- SELL ---
+        # SELL сигнал (сильное давление продавцов)
         elif (
             rsi > 60 and
             macd_val <= macd_sig and
             close > bb_upper and
             close < ema20 and
-            volume > avg_volume * 0.9
+            volume > avg_volume * 0.9 and
+            ask_volume > bid_volume * 3
         ):
             signal = 'SELL'
 
+        # === Отправка сигнала с графиком ===
         if signal:
-            # График
             plt.figure(figsize=(10, 5))
             plt.plot(df['timestamp'], df['close'], label='Цена', linewidth=2)
             plt.plot(df['timestamp'], df['ema20'], label='EMA20', linestyle='--')
@@ -85,9 +104,11 @@ def analyze(symbol):
 
             caption = (
                 f"{signal} сигнал по {symbol}\n"
-                f"RSI: {rsi:.1f}, Объём: {volume:.1f}\n"
+                f"Цена: {close:.4f} | RSI: {rsi:.1f} | Объём: {volume:.1f}\n"
                 f"MACD: {macd_val:.4f} | Signal: {macd_sig:.4f}\n"
-                f"EMA20: {ema20:.2f}, Цена: {close:.4f}"
+                f"EMA20: {ema20:.2f}\n"
+                f"Best Bid: {best_bid:.4f} | Ask: {best_ask:.4f} | Спред: {spread:.4f}\n"
+                f"Bid объём (top3): {bid_volume:.1f} | Ask объём (top3): {ask_volume:.1f}"
             )
 
             requests.post(
@@ -99,9 +120,10 @@ def analyze(symbol):
     except Exception as e:
         print(f"[Ошибка] {symbol}: {e}")
 
-# === Цикл проверки ===
+# === Основной цикл ===
+send_telegram_message("✅ Бот запущен и ожидает сигналы.")
 while True:
     for symbol in symbols:
         analyze(symbol)
         time.sleep(1)
-    time.sleep(60 * 15)
+    time.sleep(60 * 15)  # Проверка каждые 15 минут
