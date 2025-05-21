@@ -83,7 +83,6 @@ def analyze(symbol):
     except Exception as e:
         print(f"[Ошибка] {symbol}: {e}")
 
-
 # === Основной цикл ===
 send_telegram_message("✅ Бот запущен и ожидает сигналы.")
 while True:
