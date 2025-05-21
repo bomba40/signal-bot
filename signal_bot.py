@@ -19,7 +19,7 @@ def send_telegram_message(message):
 exchange = ccxt.bybit({'enableRateLimit': True})
 
 # === Настройки монет и таймфрейма ===
-symbols = ['BTC/USDT, 'SOL/USDT', 'WIF/USDT', 'SUI/USDT', 'JUP/USDT', 'PEPE/USDT', 'LINK/USDT', 'AAVE/USDT']
+symbols = ['BTC/USDT', 'SOL/USDT', 'WIF/USDT', 'SUI/USDT', 'JUP/USDT', 'PEPE/USDT', 'LINK/USDT', 'AAVE/USDT']
 timeframe = '15m'
 
 # === Анализ монеты ===
