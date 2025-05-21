@@ -38,6 +38,7 @@ def analyze(symbol):
         df['bb_upper'] = bb.bollinger_hband()
         df['bb_lower'] = bb.bollinger_lband()
         df['ema20'] = ta.trend.EMAIndicator(df['close'], window=20).ema_indicator()
+        df['supertrend'] = ta.supertrend(df['high'], df['low'], df['close'])['SUPERT_7_3.0']
 
         latest = df.iloc[-1]
         close = latest['close']
@@ -47,13 +48,14 @@ def analyze(symbol):
         bb_upper = latest['bb_upper']
         bb_lower = latest['bb_lower']
         ema20 = latest['ema20']
+        supertrend = latest['supertrend']
         volume = latest['volume']
         avg_volume = df['volume'].iloc[-20:].mean()
 
         # --- Стакан ордеров ---
-        order_book = exchange.fetch_order_book(symbol)
-        bids = order_book['bids'][:3]
-        asks = order_book['asks'][:3]
+        order_book = exchange.fetch_order_book(symbol, limit=5)
+        bids = order_book['bids'][:5]
+        asks = order_book['asks'][:5]
         best_bid = bids[0][0] if bids else 0
         best_ask = asks[0][0] if asks else 0
         spread = best_ask - best_bid if best_ask and best_bid else 0
@@ -63,33 +65,36 @@ def analyze(symbol):
 
         signal = None
 
-        # BUY сигнал (сильное давление покупателей)
+        # BUY сигнал
         if (
-            rsi < 40 and
+            rsi < 50 and
             macd_val >= macd_sig and
             close < bb_lower and
             close > ema20 and
+            close > supertrend and
             volume > avg_volume * 0.9 and
             bid_volume > ask_volume * 3
         ):
             signal = 'BUY'
 
-        # SELL сигнал (сильное давление продавцов)
+        # SELL сигнал
         elif (
-            rsi > 60 and
+            rsi > 50 and
             macd_val <= macd_sig and
             close > bb_upper and
             close < ema20 and
+            close < supertrend and
             volume > avg_volume * 0.9 and
             ask_volume > bid_volume * 3
         ):
             signal = 'SELL'
 
-        # === Отправка сигнала с графиком ===
         if signal:
+            # График
             plt.figure(figsize=(10, 5))
             plt.plot(df['timestamp'], df['close'], label='Цена', linewidth=2)
             plt.plot(df['timestamp'], df['ema20'], label='EMA20', linestyle='--')
+            plt.plot(df['timestamp'], df['supertrend'], label='Supertrend', linestyle='-.')
             plt.axhline(bb_upper, color='red', linestyle=':', label='BB Верхняя')
             plt.axhline(bb_lower, color='green', linestyle=':', label='BB Нижняя')
             plt.title(f"{symbol} сигнал: {signal}")
@@ -106,9 +111,9 @@ def analyze(symbol):
                 f"{signal} сигнал по {symbol}\n"
                 f"Цена: {close:.4f} | RSI: {rsi:.1f} | Объём: {volume:.1f}\n"
                 f"MACD: {macd_val:.4f} | Signal: {macd_sig:.4f}\n"
-                f"EMA20: {ema20:.2f}\n"
+                f"EMA20: {ema20:.2f} | Supertrend: {supertrend:.2f}\n"
                 f"Best Bid: {best_bid:.4f} | Ask: {best_ask:.4f} | Спред: {spread:.4f}\n"
-                f"Bid объём (top3): {bid_volume:.1f} | Ask объём (top3): {ask_volume:.1f}"
+                f"Bid объём (top5): {bid_volume:.1f} | Ask объём (top5): {ask_volume:.1f}"
             )
 
             requests.post(
