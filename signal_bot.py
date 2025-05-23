@@ -89,4 +89,4 @@ while True:
     for symbol in symbols:
         analyze(symbol)
         time.sleep(1)
-    time.sleep(60 * 15)  # Проверка каждые 15 минут
+    time.sleep(60 * 30)  # Проверка каждые 30 минут
